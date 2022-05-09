@@ -12,6 +12,7 @@ def find_Max_Timestamp(rssi_values):
     for num in rssi_values:
         if (max_value is None or num[1] > max_value):
             max_value = num[1]
+    rssi_values[1].max()
 
     return max_value
 
@@ -43,9 +44,7 @@ def to_NPArray(rssi_values):
     # consider a certain window size
     # take the mean of the window and replace the value with this value
 def mean_filtering(rssi_values):
-
     rssi_values[0] = median_filter(rssi_values[0], 5)
-
 
     return rssi_values
 
@@ -69,6 +68,7 @@ def getTimeIntervals(rssi_values):
 # loops with a certain time window through all values and calculates their std
 # based on that we can see when and if two midges might be in a conversation group
 def getStdOfTimeInterval(mean_array):
+    min_std = 99999
     endTime = max(mean_array[1])
     for x in range(0, len(mean_array[1])-1):
         startWindow = mean_array[1][x]
@@ -97,15 +97,44 @@ def getStdOfTimeInterval(mean_array):
             if(std < 0.5):
                 if(pd.Timestamp(diff).minute == 10):
                     print('midge', curid_str, 'detected', i, std, 'timetamp', pd.Timestamp(diff).minute)
+                    if std < min_std:
+                        min_std = std
+
         else:
             break
+    return min_std
+
+def getStdRefactored(rssi_values):
+    minTimeStamp = rssi_values[1].min()
+    maxTimeStamp = rssi_values[1].max()
+
+    times = np.arange(pd.Timestamp(minTimeStamp), pd.Timestamp(maxTimeStamp), pd.Timedelta(seconds=30))
+    times = [pd.to_datetime(x).value for x in times]
+    timeRange = pd.Timestamp('2019-10-24 00:02:00.000000').value
+
+    stdValues = []
+
+    for t in times:
+        values_to_consider = np.where((rssi_values[1] > t) & (rssi_values[1] < t + timeRange))
+        if np.mean(rssi_values[0, values_to_consider]) > -55:
+            stdValues.append(np.std(rssi_values[0, values_to_consider]))
+
+    print(stdValues)
+    min = 20
+    if len(stdValues) != 0:
+        min = np.amin(stdValues)
+    return min
+
+def createAffinityMatrix():
+    affinityMatrix = np.full((50,50), 10)
+
 
 
 
 # starting point loading in all pkl files
 prox_files = [i for i in (Path.cwd()).glob("midges/*/*/*proximity.pkl")]
 
-
+affinityMatrix = np.full((50, 50), 20)
 for midge_path in prox_files:
     # the midge we are considering atm
     curid_str = midge_path.parent.parent.name
@@ -117,9 +146,9 @@ for midge_path in prox_files:
         midge_prox = midge_prox[(midge_prox["id"] != 65535) & (midge_prox["id"] < 51)]
 
         for i in range (2, 50):
-            # print(2)
+            print(i)
             # there is no data for device 38
-            if i == 38:
+            if i == 38 or i == int(curid_str):
                 continue
             rssi_values = []
             for idx,row in midge_prox.iterrows():
@@ -129,8 +158,8 @@ for midge_path in prox_files:
                     else:
                         rssi_values.append(tuple((row["rssi"], row["time"])))
 
-            minTime = find_Min_Timestamp(rssi_values)
-            maxTime = find_Max_Timestamp(rssi_values)
+            # minTime = find_Min_Timestamp(rssi_values)
+            # maxTime = find_Max_Timestamp(rssi_values)
 
             rssi_values = to_NPArray(rssi_values)
             # plt.scatter(rssi_values[1], rssi_values[0])
@@ -143,12 +172,23 @@ for midge_path in prox_files:
             # plt.title('median' +  curid_str + str(i))
             # plt.show()
             gaussianFiltered = gaussianfiltering(medianFiltered)
-            plt.scatter(gaussianFiltered[1], gaussianFiltered[0])
-            plt.title('gaussian' + curid_str + str(i))
-            plt.show()
+            # plt.scatter(gaussianFiltered[1], gaussianFiltered[0])
+            # plt.title('gaussian' + curid_str + str(i))
+            # plt.show()
 
 
-            getStdOfTimeInterval(gaussianFiltered)
+            std = getStdRefactored(gaussianFiltered)
+            # std = getStdOfTimeInterval(gaussianFiltered)
+            #
+            #
+            if affinityMatrix[int(curid_str)][i] != 20:
+                if std < affinityMatrix[int(curid_str)][i]:
+                    affinityMatrix[int(curid_str)][i] = std
+            else:
+                affinityMatrix[int(curid_str)][i] = std
+            # print(affinityMatrix)
+
+print(affinityMatrix)
 
 
 
