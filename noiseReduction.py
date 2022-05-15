@@ -28,9 +28,21 @@ def getStdRefactored(rssi_values):
     timeRange = 300
 
 
-
-    stdValues = np.mean(np.lib.stride_tricks.sliding_window_view(rssi_values[0], (300)), axis = 1)
-    stdValues = stdValues[stdValues > -45]
+    windowValues = np.lib.stride_tricks.sliding_window_view(rssi_values[0], (300))
+    windowTimes = np.lib.stride_tricks.sliding_window_view(rssi_values[1], (300))
+    # stdValues = np.array([windowTimes, windowValues])
+    #
+    # stdValues = stdValues[np.where(np.mean(stdValues[1]) >-55)]
+    # print(stdValues)
+    stdValues = np.mean(windowValues, axis = 1)
+    idx = np.where(stdValues > -55)
+    stdValues = stdValues[stdValues > -55]
+    # stdValues = stdValues[stdValues > -45]
+    # newWindow = []
+    # for i in idx:
+    #     newWindow.append(windowTimes[i])
+    # # windowTimes = np.take(windowTimes, idx)
+    # print(windowTimes)
     # for t in times:
     #     values_to_consider = np.where((rssi_values[1] > t) & (rssi_values[1] < t + timeRange))
     #     if np.mean(rssi_values[0, values_to_consider]) > -50:
@@ -38,14 +50,16 @@ def getStdRefactored(rssi_values):
     min = 0
     if len(stdValues) != 0:
         min = 1
-    return min
+    return min, idx
 
 # starting point loading in all pkl files
 prox_files = [i for i in (Path.cwd()).glob("midges/*/*/*proximity.pkl")]
 id_prox = {}
 
-workbook = xlsxwriter.Workbook('arrays.xlsx')
-worksheet = workbook.add_worksheet()
+conversationGroups = np.zeros((2965, 51, 51))
+conversationGroups[:,0,0] = range(0,2965)
+
+
 
 
 trues = pd.read_csv("seg2.csv", header = None)
@@ -69,7 +83,7 @@ for midge_path in prox_files:
 
         for i in range(1, 50):
             # print(i)
-            i = 30
+
             if i == 38 or i == int(curid_str) or i == 17 or int(curid_str) == 17:
                 continue
 
@@ -99,21 +113,26 @@ for midge_path in prox_files:
             # plt.title("Gaussian filter "+str(i))
             # plt.show()
 
-            std = getStdRefactored(gaussianFiltered)
+
+
+
+
+
+            std, windowTimes = getStdRefactored(gaussianFiltered)
+            for t in windowTimes[0]:
+                conversationGroups[t, int(curid_str), i] = std
 
             # if affinityMatrix[int(curid_str)][i] != 20:
             #     if std < affinityMatrix[int(curid_str)][i]:
             #         affinityMatrix[int(curid_str)][i] = std
             # else:
             affinityMatrix[int(curid_str)][i] = std
-            row = i
-            for col, data in enumerate(affinityMatrix):
-                worksheet.write_column(row, col, data)
+
 
 
     allMidges.append(int(curid_str))
-print(affinityMatrix)
-workbook.close()
+print(conversationGroups)
+
 groups = iterate_climb_learned(affinityMatrix, len(allMidges))
 
 print(groups)
