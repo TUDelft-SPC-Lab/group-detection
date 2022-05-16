@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.ndimage import gaussian_filter1d, median_filter
 from f1_calc import *
 from scipy.interpolate import interp1d
-import xlsxwriter
+
 
 
 def mean_filtering(rssi_values):
@@ -21,32 +21,12 @@ def gaussianfiltering(rssi_values):
     return rssi_values
 
 def getStdRefactored(rssi_values):
-    minTimeStamp = rssi_values[1].min()
-    maxTimeStamp = rssi_values[1].max()
+    windowValues = np.lib.stride_tricks.sliding_window_view(rssi_values[0], (120))
 
-    times = np.arange(minTimeStamp, maxTimeStamp, 30)
-    timeRange = 300
-
-
-    windowValues = np.lib.stride_tricks.sliding_window_view(rssi_values[0], (300))
-    windowTimes = np.lib.stride_tricks.sliding_window_view(rssi_values[1], (300))
-    # stdValues = np.array([windowTimes, windowValues])
-    #
-    # stdValues = stdValues[np.where(np.mean(stdValues[1]) >-55)]
-    # print(stdValues)
     stdValues = np.mean(windowValues, axis = 1)
     idx = np.where(stdValues > -55)
     stdValues = stdValues[stdValues > -55]
-    # stdValues = stdValues[stdValues > -45]
-    # newWindow = []
-    # for i in idx:
-    #     newWindow.append(windowTimes[i])
-    # # windowTimes = np.take(windowTimes, idx)
-    # print(windowTimes)
-    # for t in times:
-    #     values_to_consider = np.where((rssi_values[1] > t) & (rssi_values[1] < t + timeRange))
-    #     if np.mean(rssi_values[0, values_to_consider]) > -50:
-    #         stdValues.append(np.std(rssi_values[0, values_to_consider]))
+
     min = 0
     if len(stdValues) != 0:
         min = 1
@@ -56,8 +36,8 @@ def getStdRefactored(rssi_values):
 prox_files = [i for i in (Path.cwd()).glob("midges/*/*/*proximity.pkl")]
 id_prox = {}
 
-conversationGroups = np.zeros((2965, 51, 51))
-conversationGroups[:,0,0] = range(0,2965)
+conversationGroups = np.zeros((3000, 51, 51))
+conversationGroups[:,0,0] = range(0,3000)
 
 
 
@@ -122,21 +102,17 @@ for midge_path in prox_files:
             for t in windowTimes[0]:
                 conversationGroups[t, int(curid_str), i] = std
 
-            # if affinityMatrix[int(curid_str)][i] != 20:
-            #     if std < affinityMatrix[int(curid_str)][i]:
-            #         affinityMatrix[int(curid_str)][i] = std
-            # else:
             affinityMatrix[int(curid_str)][i] = std
 
 
 
     allMidges.append(int(curid_str))
-print(conversationGroups)
+# print(conversationGroups)
+print(len(allMidges))
 
-groups = iterate_climb_learned(affinityMatrix, len(allMidges))
+for group in conversationGroups[:]:
 
-print(groups)
+    groups = iterate_climb_learned(group, 51)
 
-
-
+    print(groups)
 
