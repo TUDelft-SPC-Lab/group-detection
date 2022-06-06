@@ -11,13 +11,13 @@ from scipy.signal import butter, lfilter, freqz
 
 
 def median_filtering(rssi_values):
-    rssi_values[0] = median_filter(rssi_values[0], 30)
+    rssi_values[0] = median_filter(rssi_values[0], 20)
 
     return rssi_values
 
 
 def gaussianfiltering(rssi_values):
-    rssi_values[0] = gaussian_filter1d(rssi_values[0], 10)
+    rssi_values[0] = gaussian_filter1d(rssi_values[0], 30)
 
     return rssi_values
 
@@ -84,6 +84,13 @@ def discardWrongMidges(trues, groups):
             group[group == 1] = 0
     return groups
 
+def normalThreshold(rssi_values):
+    idx = np.where(rssi_values[0] > -55)
+    # values = rssi_values[rssi_values[0] > -55]
+
+    return idx
+
+
 
 def preprocess():
     # starting point loading in all pkl files
@@ -129,6 +136,7 @@ def preprocess():
                 rssi_values["time"] = rssi_values["time"] - np.min(rssi_values["time"])
                 rssi_values["time"] = rssi_values["time"].apply(lambda x: x.total_seconds())
 
+
                 if len(rssi_values) == 0:
                     continue
                 interp = interp1d(rssi_values["time"], rssi_values["rssi"])
@@ -136,7 +144,7 @@ def preprocess():
                 interpolatedValues = interp(whole_seconds)
 
                 rssi_values = np.array([interpolatedValues, whole_seconds])
-                rssi_values1 = np.array([interpolatedValues, whole_seconds])
+                # rssi_values1 = np.array([interpolatedValues, whole_seconds])
                 # plt.plot(rssi_values[0])
                 # plt.title("Normal values "+ str(i))
                 # plt.show()
@@ -147,7 +155,7 @@ def preprocess():
                 # # plt.title("Median filter " + str(i))
                 # # plt.show()
                 #
-                gaussianFiltered = gaussianfiltering(rssi_values1)
+                gaussianFiltered = gaussianfiltering(rssi_values)
                 # plt.plot(gaussianFiltered[0])
                 # plt.title("Gaussian filter "+str(i))
                 # plt.show()
@@ -160,16 +168,16 @@ def preprocess():
 
                 averageFiltered = butter_lowpass_filter(rssi_values, cutoff, fs, order)
 
-
-                if i == 30:
-                    plt.plot(averageFiltered[0][:1257], color = 'green', label = 'Low pass filter')
-                    plt.plot(gaussianFiltered[0][:1257],  color = 'blue', label = "Gaussian filter")
-                    plt.plot(medianFiltered[0][:1257], color ='red',label ='Median filter')
-                    plt.title("Noise filters for "+ curid_str + " detecting "+ str(i))
-                    plt.legend()
-                    plt.xlabel('Time')
-                    plt.ylabel('RSSI')
-                    plt.show()
+                #
+                # if i == 30:
+                #     plt.plot(averageFiltered[0][:1257], color = 'green', label = 'Low pass filter')
+                #     plt.plot(gaussianFiltered[0][:1257],  color = 'blue', label = "Gaussian filter")
+                #     plt.plot(medianFiltered[0][:1257], color ='red',label ='Median filter')
+                #     plt.title("Noise filters for "+ curid_str + " detecting "+ str(i))
+                #     plt.legend()
+                #     plt.xlabel('Time')
+                #     plt.ylabel('RSSI')
+                #     plt.show()
                 # plt.plot(gaussianFiltered[0][:1257], color='blue', label="Gaussian filter")
                 # plt.show()
 
@@ -178,6 +186,8 @@ def preprocess():
                 std, windowTimes = getStdRefactored(averageFiltered)
                 # if len(windowTimes[0]) == 0:
                 #     break
+
+                # windowTimes = normalThreshold(averageFiltered)
                 for t in windowTimes[0]:
                     if t < 3000 :
                         conversationGroups[t, int(curid_str), i] = std
@@ -187,6 +197,7 @@ def preprocess():
                     if t < 3000:
                         conversationGroups[t, i, int(curid_str)] = std
 
+    print("Midges at 0" + str(len(allMidges)))
     return conversationGroups, trues
 
 
@@ -202,6 +213,7 @@ def grouping(conversationGroups, trues):
             if (len(allMidges) != len(set(allMidges))):
                 print("Duplicate found on line " + str(i + 1))
                 continue
+
 
         cleanGroups = discardWrongMidges(truegroups, group)
         cleanGroups = iterate_climb_learned(cleanGroups, 51)
