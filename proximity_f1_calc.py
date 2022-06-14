@@ -11,6 +11,7 @@ import f1_calc as f1
 import re
 from pathlib import Path
 from dominant_sets import *
+from rotation_filter import *
 
 
 # for a set of vectors of the form [0,1,0,...,1], return a set of vectors of group names, using dict
@@ -74,7 +75,7 @@ def findRSSI(df, curid, time, allNeighbours, max_timeout):
     return discared_count, np.array(rssi_at_time)
 
 
-prox_files = [i for i in (Path.cwd()).glob("midges/*/*/*proximity.pkl")]
+prox_files = [i for i in (Path.cwd()).glob("data/*/*/*proximity.pkl")]
 id_prox = {}
 
 trues = pd.read_csv("ff/seg2.csv", header=None)
@@ -96,7 +97,7 @@ for midge_path in prox_files:
 
 
 # range(0, len(trues.index) - 1
-def f1_calc(threshold, max_timeout, reconstruct=True, op='min'):
+def f1_calc(threshold, max_timeout, reconstruct=True, op='min', rotation=-1):
     avg_results = np.array([0.0, 0.0])
     counter = 0
     discarded_total = 0
@@ -160,6 +161,9 @@ def f1_calc(threshold, max_timeout, reconstruct=True, op='min'):
         # Fill the diagonal again
         np.fill_diagonal(matrix, 0.0)
 
+        if rotation != -1:
+            matrix = rotation_filter(matrix, trues, allMidges, time, rotation)
+
         groups = iterate_climb_learned(matrix.A, len(allMidges))
         groups = group_names(groups, len(allMidges), id_matrix_pos)
         correctness = f1.group_correctness(groups, truegroups, 1, non_reusable=False)
@@ -202,5 +206,18 @@ def get_results():
     dfresults.to_excel("Reults.xlsx", sheet_name='F-measure')
     print(results)
 
+def get_results_Ardy():
+    results = []
+    rotation = [-1, 10, 20, 30, 35, 45, 63, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
+    for rot in rotation:
+        f_1avg, precision, recall, items, discarded = f1_calc(-55, 30, op='avg', reconstruct=True, rotation=rot)
+        results.append([-55, 30, 'avg', True, rot, f_1avg, precision, recall, items, discarded])
+    dfresults = pd.DataFrame(results,
+                             columns=['Threshold', 'Timeout', 'Symmetrisation', 'Reconstruction', 'orientation_angle',
+                                      'F1 measure', 'Precision',
+                                      'Recall', 'Items', 'Timeouts occurred'])
+    dfresults.to_excel("Reults.xlsx", sheet_name='F-measure')
+    print(results)
 
-print(f1_calc(-55, 30, True, 'avg'))
+
+print(get_results_Ardy())
