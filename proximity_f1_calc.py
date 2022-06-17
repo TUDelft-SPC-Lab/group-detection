@@ -208,7 +208,7 @@ def get_results():
 
 def get_results_Ardy():
     results = []
-    rotation = [-1, 10, 20, 30, 35, 45, 63, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
+    rotation = [-1, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 63, 65, 70, 75, 80, 85, 90, 91]
     for rot in rotation:
         f_1avg, precision, recall, items, discarded = f1_calc(-55, 30, op='avg', reconstruct=True, rotation=rot)
         results.append([-55, 30, 'avg', True, rot, f_1avg, precision, recall, items, discarded])
